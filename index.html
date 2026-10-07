@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insurance Claim Fraud Detection — Ensemble Learning Web App</title>
+  <meta name="description" content="Final-year Computer Science project demo: Stacking ensemble model combining Random Forest, XGBoost, and Isolation Forest for vehicle insurance claim fraud detection.">
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- Local Chart.js Build for offline demo reliability -->
+  <script src="/static/vendor/chart.min.js"></script>
+</head>
+<body>
+
+  <!-- Header & SPA Navigation -->
+  <header>
+    <div class="container header-content">
+      <div class="brand">
+        <div class="brand-icon">🛡️</div>
+        <div class="brand-text">
+          <h1>FraudShield AI</h1>
+          <p>Insurance Claim Fraud Detection • Stacking Ensemble</p>
+        </div>
+      </div>
+
+      <!-- 4 SPA Navigation Links -->
+      <nav class="navbar">
+        <a class="nav-link active" data-tab="predict">
+          <span class="nav-dot dot-predict"></span>
+          <span>Predict</span>
+        </a>
+        <a class="nav-link" data-tab="rf">
+          <span class="nav-dot dot-rf"></span>
+          <span>Random Forest</span>
+        </a>
+        <a class="nav-link" data-tab="xgb">
+          <span class="nav-dot dot-xgb"></span>
+          <span>XGBoost</span>
+        </a>
+        <a class="nav-link" data-tab="iso">
+          <span class="nav-dot dot-iso"></span>
+          <span>Isolation Forest</span>
+        </a>
+      </nav>
+
+      <div class="system-status">
+        <span class="status-dot"></span>
+        <span id="backend-status">FastAPI Active</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- PAGE VIEW 1: PREDICT (Combined Dashboard) -->
+    <section class="page-view active" id="page-predict">
+      <!-- Hero / Intro -->
+      <div class="page-title-banner">
+        <h2>Claim Risk Evaluation Engine</h2>
+        <p>Evaluate vehicle insurance claims simultaneously using three independent base models (Random Forest, XGBoost, Isolation Forest) combined via a Logistic Regression Meta-Learner.</p>
+      </div>
+
+      <!-- Sample Presets Bar -->
+      <div class="sample-bar">
+        <div class="sample-title">⚡ Preset Demo Claims:</div>
+        <div class="sample-buttons">
+          <button type="button" class="btn btn-sample-fraud" id="btn-load-fraud">🚨 Load Fraud Example</button>
+          <button type="button" class="btn btn-sample-legit" id="btn-load-legit">✅ Load Legitimate Example</button>
+          <button type="button" class="btn btn-sample-borderline" id="btn-load-borderline">⚠️ Load Borderline Example</button>
+          <button type="button" class="btn btn-secondary" id="btn-clear-form">🧹 Clear Form</button>
+        </div>
+      </div>
+
+      <!-- Claim Submission Form (Fix A1: Balanced 6-field Grid Sections) -->
+      <section class="form-card">
+        <div class="form-header">
+          <h2>Enter Claim Features</h2>
+          <span style="font-size: 12px; color: var(--text-secondary);">31 Dataset Features</span>
+        </div>
+
+        <form id="claim-form">
+          <div class="form-section-grid">
+
+            <!-- Section 1: Policy & Coverage (6 fields) -->
+            <div class="form-section">
+              <div class="section-title">📄 Policy & Coverage</div>
+              <div class="fields-container">
+                <div class="field-group">
+                  <label for="PolicyType">Policy Type</label>
+                  <select id="PolicyType" name="PolicyType" required>
+                    <option value="Sedan - All Perils">Sedan - All Perils</option>
+                    <option value="Sedan - Collision">Sedan - Collision</option>
+                    <option value="Sedan - Liability">Sedan - Liability</option>
+                    <option value="Sport - All Perils">Sport - All Perils</option>
+                    <option value="Sport - Collision">Sport - Collision</option>
+                    <option value="Sport - Liability">Sport - Liability</option>
+                    <option value="Utility - All Perils">Utility - All Perils</option>
+                    <option value="Utility - Collision">Utility - Collision</option>
+                    <option value="Utility - Liability">Utility - Liability</option>
+                  </select>
+                  <div class="field-hint">e.g. Sedan - All Perils</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="BasePolicy">Base Policy</label>
+                  <select id="BasePolicy" name="BasePolicy" required>
+                    <option value="All Perils">All Perils</option>
+                    <option value="Collision">Collision</option>
+                    <option value="Liability">Liability</option>
+                  </select>
+                  <div class="field-hint">e.g. All Perils</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="VehiclePrice">Vehicle Price Range</label>
+                  <select id="VehiclePrice" name="VehiclePrice" required>
+                    <option value="less than 20000">less than 20000</option>
+                    <option value="20000 to 29000">20000 to 29000</option>
+                    <option value="30000 to 39000">30000 to 39000</option>
+                    <option value="40000 to 59000">40000 to 59000</option>
+                    <option value="60000 to 69000">60000 to 69000</option>
+                    <option value="more than 69000">more than 69000</option>
+                  </select>
+                  <div class="field-hint">e.g. more than 69000</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="Deductible">Deductible ($)</label>
+                  <input type="number" id="Deductible" name="Deductible" min="300" max="700" step="100" required>
+                  <div class="field-hint">e.g. 400</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="DriverRating">Driver Rating (1-4)</label>
+                  <input type="number" id="DriverRating" name="DriverRating" min="1" max="4" required>
+                  <div class="field-hint">e.g. 1</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="AgeOfPolicyHolder">Age of Policy Holder</label>
+                  <select id="AgeOfPolicyHolder" name="AgeOfPolicyHolder" required>
+                    <option value="16 to 17">16 to 17</option>
+                    <option value="18 to 20">18 to 20</option>
+                    <option value="21 to 25">21 to 25</option>
+                    <option value="26 to 30">26 to 30</option>
+                    <option value="31 to 35">31 to 35</option>
+                    <option value="36 to 40">36 to 40</option>
+                    <option value="41 to 50">41 to 50</option>
+                    <option value="51 to 65">51 to 65</option>
+                    <option value="over 65">over 65</option>
+                  </select>
+                  <div class="field-hint">e.g. 16 to 17</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 2: Vehicle & Agent (6 fields) -->
+            <div class="form-section">
+              <div class="section-title">🚗 Vehicle & Agent</div>
+              <div class="fields-container">
+                <div class="field-group">
+                  <label for="Make">Vehicle Make</label>
+                  <select id="Make" name="Make" required>
+                    <option value="Honda">Honda</option><option value="Toyota">Toyota</option><option value="Ford">Ford</option>
+                    <option value="Mazda">Mazda</option><option value="Chevrolet">Chevrolet</option><option value="Pontiac">Pontiac</option>
+                    <option value="Accura">Accura</option><option value="Dodge">Dodge</option><option value="VW">VW</option>
+                    <option value="BMW">BMW</option><option value="Mercury">Mercury</option><option value="Nisson">Nisson</option>
+                    <option value="Saturn">Saturn</option><option value="Saab">Saab</option><option value="Porche">Porche</option>
+                    <option value="Jaguar">Jaguar</option>
+                  </select>
+                  <div class="field-hint">e.g. Honda</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="VehicleCategory">Vehicle Category</label>
+                  <select id="VehicleCategory" name="VehicleCategory" required>
+                    <option value="Sedan">Sedan</option>
+                    <option value="Sport">Sport</option>
+                    <option value="Utility">Utility</option>
+                  </select>
+                  <div class="field-hint">e.g. Sedan</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="AgeOfVehicle">Age of Vehicle</label>
+                  <select id="AgeOfVehicle" name="AgeOfVehicle" required>
+                    <option value="new">new</option>
+                    <option value="2 years">2 years</option>
+                    <option value="3 years">3 years</option>
+                    <option value="4 years">4 years</option>
+                    <option value="5 years">5 years</option>
+                    <option value="6 years">6 years</option>
+                    <option value="7 years">7 years</option>
+                    <option value="more than 7">more than 7</option>
+                  </select>
+                  <div class="field-hint">e.g. new</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="NumberOfCars">Number of Cars Insured</label>
+                  <select id="NumberOfCars" name="NumberOfCars" required>
+                    <option value="1 vehicle">1 vehicle</option>
+                    <option value="2 vehicles">2 vehicles</option>
+                    <option value="3 to 4">3 to 4</option>
+                    <option value="5 to 8">5 to 8</option>
+                    <option value="more than 8">more than 8</option>
+                  </select>
+                  <div class="field-hint">e.g. 1 vehicle</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="Year">Policy Year</label>
+                  <input type="number" id="Year" name="Year" min="1994" max="1996" required>
+                  <div class="field-hint">e.g. 1994</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="AgentType">Agent Type</label>
+                  <select id="AgentType" name="AgentType" required>
+                    <option value="External">External</option>
+                    <option value="Internal">Internal</option>
+                  </select>
+                  <div class="field-hint">e.g. External</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 3: Incident & History (6 fields) -->
+            <div class="form-section">
+              <div class="section-title">📍 Incident & History</div>
+              <div class="fields-container">
+                <div class="field-group">
+                  <label for="Month">Accident Month</label>
+                  <select id="Month" name="Month" required>
+                    <option value="Jan">Jan</option><option value="Feb">Feb</option><option value="Mar">Mar</option>
+                    <option value="Apr">Apr</option><option value="May">May</option><option value="Jun">Jun</option>
+                    <option value="Jul">Jul</option><option value="Aug">Aug</option><option value="Sep">Sep</option>
+                    <option value="Oct">Oct</option><option value="Nov">Nov</option><option value="Dec">Dec</option>
+                  </select>
+                  <div class="field-hint">e.g. Jul</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="WeekOfMonth">Accident Week of Month</label>
+                  <input type="number" id="WeekOfMonth" name="WeekOfMonth" min="1" max="5" required>
+                  <div class="field-hint">e.g. 1</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="DayOfWeek">Accident Day of Week</label>
+                  <select id="DayOfWeek" name="DayOfWeek" required>
+                    <option value="Monday">Monday</option><option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option><option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option><option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                  </select>
+                  <div class="field-hint">e.g. Saturday</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="AccidentArea">Accident Area</label>
+                  <select id="AccidentArea" name="AccidentArea" required>
+                    <option value="Urban">Urban</option>
+                    <option value="Rural">Rural</option>
+                  </select>
+                  <div class="field-hint">e.g. Urban</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="Days_Policy_Accident">Days: Policy to Accident</label>
+                  <select id="Days_Policy_Accident" name="Days_Policy_Accident" required>
+                    <option value="none">none</option>
+                    <option value="1 to 7">1 to 7</option>
+                    <option value="8 to 15">8 to 15</option>
+                    <option value="15 to 30">15 to 30</option>
+                    <option value="more than 30">more than 30</option>
+                  </select>
+                  <div class="field-hint">e.g. more than 30</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="Days_Policy_Claim">Days: Policy to Claim</label>
+                  <select id="Days_Policy_Claim" name="Days_Policy_Claim" required>
+                    <option value="none">none</option>
+                    <option value="8 to 15">8 to 15</option>
+                    <option value="15 to 30">15 to 30</option>
+                    <option value="more than 30">more than 30</option>
+                  </select>
+                  <div class="field-hint">e.g. more than 30</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 4: Claimant & Investigation (6 fields) -->
+            <div class="form-section">
+              <div class="section-title">👤 Claimant & Investigation</div>
+              <div class="fields-container">
+                <div class="field-group">
+                  <label for="Age">Claimant Age</label>
+                  <input type="number" id="Age" name="Age" min="0" max="80" required>
+                  <div class="field-hint">e.g. 17</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="Sex">Gender</label>
+                  <select id="Sex" name="Sex" required>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                  <div class="field-hint">e.g. Male</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="MaritalStatus">Marital Status</label>
+                  <select id="MaritalStatus" name="MaritalStatus" required>
+                    <option value="Single">Single</option>
+                    <option value="Married">Married</option>
+                    <option value="Divorced">Divorced</option>
+                    <option value="Widow">Widow</option>
+                  </select>
+                  <div class="field-hint">e.g. Single</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="Fault">Fault Determination</label>
+                  <select id="Fault" name="Fault" required>
+                    <option value="Policy Holder">Policy Holder</option>
+                    <option value="Third Party">Third Party</option>
+                  </select>
+                  <div class="field-hint">e.g. Policy Holder</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="PoliceReportFiled">Police Report Filed?</label>
+                  <select id="PoliceReportFiled" name="PoliceReportFiled" required>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                  <div class="field-hint">e.g. No</div>
+                </div>
+
+                <div class="field-group">
+                  <label for="WitnessPresent">Witness Present?</label>
+                  <select id="WitnessPresent" name="WitnessPresent" required>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                  <div class="field-hint">e.g. No</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hidden dataset default inputs -->
+            <input type="hidden" id="PastNumberOfClaims" name="PastNumberOfClaims" value="none">
+            <input type="hidden" id="AddressChange_Claim" name="AddressChange_Claim" value="no change">
+            <input type="hidden" id="MonthClaimed" name="MonthClaimed" value="Sep">
+            <input type="hidden" id="DayOfWeekClaimed" name="DayOfWeekClaimed" value="Tuesday">
+            <input type="hidden" id="WeekOfMonthClaimed" name="WeekOfMonthClaimed" value="4">
+            <input type="hidden" id="RepNumber" name="RepNumber" value="9">
+            <input type="hidden" id="NumberOfSuppliments" name="NumberOfSuppliments" value="none">
+
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="btn-submit">
+              🔍 Analyze Claim with Ensemble Models
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Results Area -->
+      <div class="results-container" id="results-area">
+        <!-- Headline Ensemble Verdict Card -->
+        <div class="headline-card">
+          <div class="headline-top">
+            <div>
+              <span class="meta-badge">Headline Result • Meta-Learner Stacking Ensemble</span>
+              <h2 style="font-size: 24px; font-weight: 800; margin-top: 6px;">Meta-Learner Final Verdict</h2>
+            </div>
+            <div id="ensemble-verdict-badge" class="verdict-badge verdict-fraud">
+              High-confidence Fraud
+            </div>
+          </div>
+
+          <div class="headline-grid">
+            <div class="confidence-gauge-box">
+              <div class="gauge-value" id="ensemble-confidence-num">88.5%</div>
+              <div class="gauge-label">Ensemble Fraud Probability</div>
+            </div>
+            <div>
+              <div class="meta-explanation" id="ensemble-explanation">
+                Meta-learner registered high fraud probability based on fused outputs from Random Forest, XGBoost, and Isolation Forest base classifiers.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Base Models Section Header -->
+        <div class="base-models-title">
+          <span>Base Model Evaluation (3 Independent Base Learners)</span>
+          <span style="font-size: 13px; color: var(--text-secondary);" id="agreement-summary-tag">Unanimous Consensus</span>
+        </div>
+
+        <!-- 3 Base Model Cards Grid -->
+        <div class="models-grid">
+          <!-- Card 1: Random Forest -->
+          <div class="model-card card-rf">
+            <div class="model-header">
+              <div>
+                <div class="model-name">Random Forest</div>
+                <div class="model-algo">Bagging Ensemble</div>
+              </div>
+              <span id="rf-verdict-tag" class="model-verdict-tag verdict-fraud">Fraud</span>
+            </div>
+
+            <div class="model-score-row">
+              <span style="font-size: 13px; color: var(--text-secondary);">Fraud Confidence</span>
+              <span id="rf-confidence" class="model-score-num" style="color: var(--color-rf);">82.0%</span>
+            </div>
+
+            <button type="button" class="metrics-toggle" onclick="toggleMetrics('rf-metrics')">
+              <span>Model Test Performance & Metrics</span>
+              <span>▼</span>
+            </button>
+            
+            <div id="rf-metrics" class="metrics-content">
+              <table class="metrics-table">
+                <tr><td>Accuracy</td><td>91.60%</td></tr>
+                <tr><td>Precision</td><td>27.44%</td></tr>
+                <tr><td>Recall</td><td>24.32%</td></tr>
+                <tr><td>F1 Score</td><td>25.79%</td></tr>
+                <tr><td>ROC-AUC</td><td>0.8424</td></tr>
+              </table>
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Confusion Matrix (Test Set):</div>
+              <div class="cm-matrix">
+                <div class="cm-box"><label>TN</label><val>2780</val></div>
+                <div class="cm-box"><label>FP</label><val>119</val></div>
+                <div class="cm-box"><label>FN</label><val>140</val></div>
+                <div class="cm-box"><label>TP</label><val>45</val></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: XGBoost -->
+          <div class="model-card card-xgb">
+            <div class="model-header">
+              <div>
+                <div class="model-name">XGBoost</div>
+                <div class="model-algo">Gradient Boosting</div>
+              </div>
+              <span id="xgb-verdict-tag" class="model-verdict-tag verdict-legit">Not Fraud</span>
+            </div>
+
+            <div class="model-score-row">
+              <span style="font-size: 13px; color: var(--text-secondary);">Fraud Confidence</span>
+              <span id="xgb-confidence" class="model-score-num" style="color: var(--color-xgb);">61.0%</span>
+            </div>
+
+            <button type="button" class="metrics-toggle" onclick="toggleMetrics('xgb-metrics')">
+              <span>Model Test Performance & Metrics</span>
+              <span>▼</span>
+            </button>
+
+            <div id="xgb-metrics" class="metrics-content">
+              <table class="metrics-table">
+                <tr><td>Accuracy</td><td>63.78%</td></tr>
+                <tr><td>Precision</td><td>13.13%</td></tr>
+                <tr><td>Recall</td><td>89.73%</td></tr>
+                <tr><td>F1 Score</td><td>22.91%</td></tr>
+                <tr><td>ROC-AUC</td><td>0.8339</td></tr>
+              </table>
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Confusion Matrix (Test Set):</div>
+              <div class="cm-matrix">
+                <div class="cm-box"><label>TN</label><val>1801</val></div>
+                <div class="cm-box"><label>FP</label><val>1098</val></div>
+                <div class="cm-box"><label>FN</label><val>19</val></div>
+                <div class="cm-box"><label>TP</label><val>166</val></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Isolation Forest -->
+          <div class="model-card card-iso">
+            <div class="model-header">
+              <div>
+                <div class="model-name">Isolation Forest</div>
+                <div class="model-algo">Anomaly Detection</div>
+              </div>
+              <span id="iso-verdict-tag" class="model-verdict-tag verdict-fraud">Fraud</span>
+            </div>
+
+            <div class="model-score-row">
+              <span style="font-size: 13px; color: var(--text-secondary);">Anomaly Index</span>
+              <span id="iso-confidence" class="model-score-num" style="color: var(--color-iso);">74.0%</span>
+            </div>
+
+            <button type="button" class="metrics-toggle" onclick="toggleMetrics('iso-metrics')">
+              <span>Model Test Performance & Metrics</span>
+              <span>▼</span>
+            </button>
+
+            <div id="iso-metrics" class="metrics-content">
+              <table class="metrics-table">
+                <tr><td>Accuracy</td><td>86.93%</td></tr>
+                <tr><td>Precision</td><td>7.75%</td></tr>
+                <tr><td>Recall</td><td>10.81%</td></tr>
+                <tr><td>F1 Score</td><td>9.03%</td></tr>
+                <tr><td>ROC-AUC</td><td>0.4954</td></tr>
+              </table>
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Confusion Matrix (Test Set):</div>
+              <div class="cm-matrix">
+                <div class="cm-box"><label>TN</label><val>2661</val></div>
+                <div class="cm-box"><label>FP</label><val>238</val></div>
+                <div class="cm-box"><label>FN</label><val>165</val></div>
+                <div class="cm-box"><label>TP</label><val>20</val></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-header">Model Confidence Comparison</div>
+            <div class="chart-wrapper">
+              <canvas id="chart-confidence"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">Top Random Forest Feature Importances</div>
+            <div class="chart-wrapper">
+              <canvas id="chart-importance"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE VIEW 2: RANDOM FOREST DEEP-DIVE -->
+    <section class="page-view" id="page-rf">
+      <div class="model-page-header model-header-rf">
+        <div>
+          <span style="color: var(--color-rf); font-size: 12px; font-weight: 700; text-transform: uppercase;">Bagging Ensemble Model</span>
+          <h2 style="font-size: 26px; font-weight: 800;">Random Forest Classifier</h2>
+          <p style="color: var(--text-secondary); font-size: 14px;">Constructs 250 balanced decision trees using bootstrap aggregation (bagging).</p>
+        </div>
+        <div class="live-claim-banner" id="rf-live-banner">
+          <div>
+            <div style="font-size: 11px; color: var(--text-secondary);">Tested Claim Verdict</div>
+            <div id="rf-live-verdict" style="font-size: 16px; font-weight: 800; color: var(--color-rf);">Run prediction to test</div>
+          </div>
+          <div class="live-banner-num" id="rf-live-conf" style="color: var(--color-rf);">--%</div>
+        </div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stat-cards-grid">
+        <div class="stat-card">
+          <div class="stat-title">Accuracy</div>
+          <div class="stat-value" style="color: var(--color-rf);">91.60%</div>
+          <div class="stat-sub">Overall Test Precision</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Precision</div>
+          <div class="stat-value">27.44%</div>
+          <div class="stat-sub">True Fraud Ratio</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Recall</div>
+          <div class="stat-value">24.32%</div>
+          <div class="stat-sub">Fraud Detected Ratio</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">ROC-AUC</div>
+          <div class="stat-value">0.8424</div>
+          <div class="stat-sub">PR-AUC: 0.2392</div>
+        </div>
+      </div>
+
+      <!-- Hyperparameters & Training Setup Grid -->
+      <div class="detail-tables-grid">
+        <div class="detail-box">
+          <h3>⚙️ Model Hyperparameters</h3>
+          <table class="param-table">
+            <tr><td>n_estimators</td><td>250 trees</td></tr>
+            <tr><td>min_samples_leaf</td><td>2 samples</td></tr>
+            <tr><td>max_depth</td><td>None (unlimited)</td></tr>
+            <tr><td>class_weight</td><td>balanced</td></tr>
+            <tr><td>random_state</td><td>42</td></tr>
+          </table>
+        </div>
+
+        <div class="detail-box">
+          <h3>🔬 Training & Search Details</h3>
+          <table class="param-table">
+            <tr><td>Search Method</td><td>RandomizedSearchCV</td></tr>
+            <tr><td>Cross-Validation</td><td>Stratified 3-Fold CV</td></tr>
+            <tr><td>Scoring Metric</td><td>PR-AUC (Average Precision)</td></tr>
+            <tr><td>Dataset Size</td><td>15,420 claims (80/20 train/test)</td></tr>
+            <tr><td>Feature Dimension</td><td>104 encoded features</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Graphs Grid -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">ROC Curve (Random Forest)</div>
+          <div class="chart-wrapper"><canvas id="chart-rf-roc"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">Precision-Recall Curve (Random Forest)</div>
+          <div class="chart-wrapper"><canvas id="chart-rf-pr"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE VIEW 3: XGBOOST DEEP-DIVE -->
+    <section class="page-view" id="page-xgb">
+      <div class="model-page-header model-header-xgb">
+        <div>
+          <span style="color: var(--color-xgb); font-size: 12px; font-weight: 700; text-transform: uppercase;">Gradient Boosting Model</span>
+          <h2 style="font-size: 26px; font-weight: 800;">XGBoost Classifier</h2>
+          <p style="color: var(--text-secondary); font-size: 14px;">Sequentially builds boosted trees to minimize residual errors, tuned for maximum fraud recall.</p>
+        </div>
+        <div class="live-claim-banner" id="xgb-live-banner">
+          <div>
+            <div style="font-size: 11px; color: var(--text-secondary);">Tested Claim Verdict</div>
+            <div id="xgb-live-verdict" style="font-size: 16px; font-weight: 800; color: var(--color-xgb);">Run prediction to test</div>
+          </div>
+          <div class="live-banner-num" id="xgb-live-conf" style="color: var(--color-xgb);">--%</div>
+        </div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stat-cards-grid">
+        <div class="stat-card">
+          <div class="stat-title">Accuracy</div>
+          <div class="stat-value" style="color: var(--color-xgb);">63.78%</div>
+          <div class="stat-sub">High-Recall Tradeoff</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Precision</div>
+          <div class="stat-value">13.13%</div>
+          <div class="stat-sub">True Fraud Ratio</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Recall</div>
+          <div class="stat-value" style="color: var(--color-xgb);">89.73%</div>
+          <div class="stat-sub">Fraud Coverage</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">ROC-AUC</div>
+          <div class="stat-value">0.8339</div>
+          <div class="stat-sub">PR-AUC: 0.2283</div>
+        </div>
+      </div>
+
+      <!-- Hyperparameters & Training Setup Grid -->
+      <div class="detail-tables-grid">
+        <div class="detail-box">
+          <h3>⚙️ Model Hyperparameters</h3>
+          <table class="param-table">
+            <tr><td>n_estimators</td><td>150 boosting rounds</td></tr>
+            <tr><td>max_depth</td><td>3 (shallow trees)</td></tr>
+            <tr><td>learning_rate</td><td>0.05</td></tr>
+            <tr><td>scale_pos_weight</td><td>15.69 (class imbalance ratio)</td></tr>
+            <tr><td>eval_metric</td><td>aucpr</td></tr>
+          </table>
+        </div>
+
+        <div class="detail-box">
+          <h3>🔬 Training & Search Details</h3>
+          <table class="param-table">
+            <tr><td>Search Method</td><td>RandomizedSearchCV</td></tr>
+            <tr><td>Cross-Validation</td><td>Stratified 3-Fold CV</td></tr>
+            <tr><td>Scoring Metric</td><td>PR-AUC (Average Precision)</td></tr>
+            <tr><td>Dataset Size</td><td>15,420 claims (80/20 train/test)</td></tr>
+            <tr><td>Class Weighting Ratio</td><td>11,597 legit / 739 fraud</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Graphs Grid -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">ROC Curve (XGBoost)</div>
+          <div class="chart-wrapper"><canvas id="chart-xgb-roc"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">Precision-Recall Curve (XGBoost)</div>
+          <div class="chart-wrapper"><canvas id="chart-xgb-pr"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE VIEW 4: ISOLATION FOREST DEEP-DIVE -->
+    <section class="page-view" id="page-iso">
+      <div class="model-page-header model-header-iso">
+        <div>
+          <span style="color: var(--color-iso); font-size: 12px; font-weight: 700; text-transform: uppercase;">Unsupervised Anomaly Model</span>
+          <h2 style="font-size: 26px; font-weight: 800;">Isolation Forest</h2>
+          <p style="color: var(--text-secondary); font-size: 14px;">Isolates unusual claims by randomly partitioning feature space, identifying novel anomaly patterns.</p>
+        </div>
+        <div class="live-claim-banner" id="iso-live-banner">
+          <div>
+            <div style="font-size: 11px; color: var(--text-secondary);">Tested Claim Verdict</div>
+            <div id="iso-live-verdict" style="font-size: 16px; font-weight: 800; color: var(--color-iso);">Run prediction to test</div>
+          </div>
+          <div class="live-banner-num" id="iso-live-conf" style="color: var(--color-iso);">--%</div>
+        </div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stat-cards-grid">
+        <div class="stat-card">
+          <div class="stat-title">Accuracy</div>
+          <div class="stat-value" style="color: var(--color-iso);">86.93%</div>
+          <div class="stat-sub">Unsupervised Score</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Precision</div>
+          <div class="stat-value">7.75%</div>
+          <div class="stat-sub">Anomaly Precision</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Recall</div>
+          <div class="stat-value">10.81%</div>
+          <div class="stat-sub">Anomaly Recall</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Contamination Ratio</div>
+          <div class="stat-value">5.98%</div>
+          <div class="stat-sub">Training Fraud Anchor</div>
+        </div>
+      </div>
+
+      <!-- Hyperparameters & Score Details Grid -->
+      <div class="detail-tables-grid">
+        <div class="detail-box">
+          <h3>⚙️ Model Hyperparameters</h3>
+          <table class="param-table">
+            <tr><td>n_estimators</td><td>200 isolation trees</td></tr>
+            <tr><td>contamination</td><td>0.0598 (anchored ~6%)</td></tr>
+            <tr><td>max_samples</td><td>auto (256 samples/tree)</td></tr>
+            <tr><td>bootstrap</td><td>False</td></tr>
+            <tr><td>random_state</td><td>42</td></tr>
+          </table>
+        </div>
+
+        <div class="detail-box">
+          <h3>🔬 Score Interpretation & Threshold</h3>
+          <table class="param-table">
+            <tr><td>Anomaly Metric</td><td>Raw negative score_samples</td></tr>
+            <tr><td>Observed Score Range</td><td>0.3934 to 0.5408</td></tr>
+            <tr><td>Decision Threshold</td><td>0.4670 (5.98% cutoff)</td></tr>
+            <tr><td>Interpretation</td><td>Higher score = easier to isolate = anomaly</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Anomaly Distribution Chart -->
+      <div class="chart-card" style="margin-bottom: 36px;">
+        <div class="chart-header">Anomaly Score Distribution (Legitimate vs. Fraud Claims)</div>
+        <div class="chart-wrapper" style="height: 320px;"><canvas id="chart-iso-distribution"></canvas></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Evaluating Claim across Ensemble Models...</div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <p>Insurance Claim Fraud Detection System • Final Year Computer Science Engineering Project</p>
+      <p style="margin-top: 4px;">Powered by FastAPI, Scikit-Learn, XGBoost, and Stacking Meta-Learner</p>
+    </div>
+  </footer>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
