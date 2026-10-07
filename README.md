@@ -144,7 +144,8 @@ C:\Users\ASUS\anaconda3\python.exe -m uvicorn app:app --host 127.0.0.1 --port 50
 ### Step 3: Launch in Web Browser
 Open your browser and navigate to:
 ```
-http://127.0.0.1:5000
+
+### LIVE LINK : https://fraudfusion-ai.onrender.com/
 ```
 - Click **"🚨 Load Fraud Example"** or **"✅ Load Legitimate Example"** to test preset claims.
 - Use the top navigation bar to inspect deep-dive model analysis tabs (**Random Forest**, **XGBoost**, **Isolation Forest**).
